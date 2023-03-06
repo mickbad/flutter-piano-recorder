@@ -78,6 +78,7 @@ class NotePosition with _$NotePosition {
   }) = _NotePosition;
 
   static NotePosition get middleC => NotePosition(note: Note.C, octave: 4);
+  static NotePosition get middleD => NotePosition(note: Note.D, octave: 4);
 }
 
 extension NotePositionHelpers on NotePosition {
