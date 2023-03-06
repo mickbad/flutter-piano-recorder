@@ -41,11 +41,9 @@ extension NoteAccidentals on Note {
     }
   }
 
-  Note get previous =>
-      (this == Note.C) ? Note.B : Note.values[Note.values.indexOf(this) - 1];
+  Note get previous => (this == Note.C) ? Note.B : Note.values[Note.values.indexOf(this) - 1];
 
-  Note get next =>
-      (this == Note.B) ? Note.C : Note.values[Note.values.indexOf(this) + 1];
+  Note get next => (this == Note.B) ? Note.C : Note.values[Note.values.indexOf(this) + 1];
 }
 
 extension NoteName on Note {
@@ -122,15 +120,12 @@ extension NotePositionHelpers on NotePosition {
         return null;
       case Accidental.Sharp:
         // A flat is always the next note after a sharp, in the same octave
-        return NotePosition(
-            note: note.next, accidental: Accidental.Flat, octave: octave);
+        return NotePosition(note: note.next, accidental: Accidental.Flat, octave: octave);
       case Accidental.Flat:
         // A sharp is always the previous note before a flat, in the same octave
-        return NotePosition(
-            note: note.previous, accidental: Accidental.Sharp, octave: octave);
+        return NotePosition(note: note.previous, accidental: Accidental.Sharp, octave: octave);
     }
   }
 
-  bool equalsAccidentalInsensitive(NotePosition another) =>
-      note == another.note && octave == another.octave;
+  bool equalsAccidentalInsensitive(NotePosition another) => note == another.note && octave == another.octave;
 }
