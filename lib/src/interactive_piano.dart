@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter/widgets.dart';
@@ -6,8 +7,9 @@ import 'package:collection/collection.dart';
 
 import 'note_position.dart';
 import 'note_range.dart';
+import 'recorder.dart';
 
-typedef OnNotePositionTapped = void Function(NotePosition position);
+typedef OnNotePositionTapped = void Function(NotePosition? position);
 
 /// Renders a scrollable interactive piano.
 class InteractivePiano extends StatefulWidget {
@@ -47,6 +49,9 @@ class InteractivePiano extends StatefulWidget {
   /// Set and change at any time (i.e. with `setState`) to cause the piano to scroll so that the desired note is centered.
   final NotePosition? noteToScrollTo;
 
+  /// Set and control InteractivePiano for playing, recording melodies, ...
+  final PianoPlayRecorderController? playRecorderController;
+
   /// See individual parameters for more information. The only required parameter
   /// is `noteRange`. Since the widget wraps a scroll view and therefore has no
   /// "intrinsic" size, be sure to use inside a parent that specifies one.
@@ -80,7 +85,8 @@ class InteractivePiano extends StatefulWidget {
       this.hideScrollbar = false,
       this.onNotePositionTapped,
       this.noteToScrollTo,
-      this.keyWidth})
+      this.keyWidth,
+      this.playRecorderController})
       : super(key: key);
 
   @override
@@ -94,10 +100,37 @@ class _InteractivePianoState extends State<InteractivePiano> {
   ScrollController? _scrollController;
   double _lastWidth = 0.0, _lastKeyWidth = 0.0;
 
+  // semaphor
+  bool isPlayingMelody = false;
+
   @override
   void initState() {
     _updateNotePositions();
     super.initState();
+
+    if (widget.playRecorderController != null) {
+      widget.playRecorderController!.addListener(() async {
+        // check control
+        switch(widget.playRecorderController!.mode) {
+          case "play":
+            // check
+            if (widget.playRecorderController!.playingMelody == null) {
+              // no melody!
+              break;
+            }
+
+            // playing melody
+            widget.playRecorderController!.isPlayingMelody = true;
+            await playMelody(widget.playRecorderController!.playingMelody!);
+            widget.playRecorderController!.isPlayingMelody = false;
+            break;
+
+        }
+
+        // reset
+        widget.playRecorderController!.mode = "";
+      });
+    }
   }
 
   @override
@@ -251,6 +284,41 @@ class _InteractivePianoState extends State<InteractivePiano> {
       widget.onNotePositionTapped == null
           ? null
           : () => widget.onNotePositionTapped!(notePosition);
+
+  ///
+  /// Play a melody
+  ///
+  Future<void> playMelody(PianoMelody melody) async {
+    // check
+    if (isPlayingMelody) {
+      return;
+    }
+
+    // playing melody
+    isPlayingMelody = true;
+    if (kDebugMode) {
+      print("Piano: playing; '${melody.name}'");
+    }
+
+    // parse notes
+    for(PianoMelodyNote note in melody.melody) {
+      // silence or note
+      // callback
+      if (widget.onNotePositionTapped != null) {
+        widget.onNotePositionTapped!(note.note);
+      }
+
+      // pause for duration note/silence
+      await Future.delayed(note.duration);
+    }
+
+    // end playing
+    isPlayingMelody = false;
+    if (kDebugMode) {
+      print("Piano: end playing: '${melody.name}'");
+    }
+
+  }
 }
 
 class _PianoKey extends StatefulWidget {

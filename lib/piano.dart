@@ -9,3 +9,5 @@ export 'src/interactive_piano.dart';
 
 export 'src/clef_image.dart';
 export 'src/clef_painter.dart';
+
+export 'src/recorder.dart';

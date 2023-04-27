@@ -2,6 +2,7 @@ import 'package:freezed_annotation/freezed_annotation.dart';
 
 part 'note_position.freezed.dart';
 
+// notes C -> B and S for silence
 enum Note { C, D, E, F, G, A, B }
 
 enum Accidental { Sharp, Flat, None }
