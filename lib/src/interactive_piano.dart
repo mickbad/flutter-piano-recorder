@@ -9,7 +9,8 @@ import 'note_position.dart';
 import 'note_range.dart';
 import 'recorder.dart';
 
-typedef OnNotePositionTapped = void Function(NotePosition? position);
+typedef OnNotePositionTapped = void Function(NotePosition position);
+typedef CallbackRecordMelody = void Function(PianoMelody melody);
 
 /// Renders a scrollable interactive piano.
 class InteractivePiano extends StatefulWidget {
@@ -52,6 +53,14 @@ class InteractivePiano extends StatefulWidget {
   /// Set and control InteractivePiano for playing, recording melodies, ...
   final PianoPlayRecorderController? playRecorderController;
 
+  /// Callback for playing melody
+  final VoidCallback? onStartPlayMelody;
+  final VoidCallback? onStopPlayMelody;
+
+  /// Callback for retrieve recording melody
+  final VoidCallback? onStartRecordMelody;
+  final CallbackRecordMelody? onStopRecordMelody;
+
   /// See individual parameters for more information. The only required parameter
   /// is `noteRange`. Since the widget wraps a scroll view and therefore has no
   /// "intrinsic" size, be sure to use inside a parent that specifies one.
@@ -86,7 +95,11 @@ class InteractivePiano extends StatefulWidget {
       this.onNotePositionTapped,
       this.noteToScrollTo,
       this.keyWidth,
-      this.playRecorderController})
+      this.playRecorderController,
+      this.onStartPlayMelody,
+      this.onStopPlayMelody,
+      this.onStartRecordMelody,
+      this.onStopRecordMelody})
       : super(key: key);
 
   @override
@@ -100,19 +113,25 @@ class _InteractivePianoState extends State<InteractivePiano> {
   ScrollController? _scrollController;
   double _lastWidth = 0.0, _lastKeyWidth = 0.0;
 
-  // semaphor
-  bool isPlayingMelody = false;
+  // current melody recording
+  late PianoMelody currentMelody;
+  PianoMelodyNote? currentNote;
+  int currentTimestamp = -1;
 
   @override
   void initState() {
     _updateNotePositions();
     super.initState();
 
+    // create temp melody
+    currentMelody = PianoMelody(name: "", melody: [])..reset();
+
     if (widget.playRecorderController != null) {
       widget.playRecorderController!.addListener(() async {
         // check control
         switch(widget.playRecorderController!.mode) {
           case "play":
+            /// start a melody playing
             // check
             if (widget.playRecorderController!.playingMelody == null) {
               // no melody!
@@ -120,14 +139,34 @@ class _InteractivePianoState extends State<InteractivePiano> {
             }
 
             // playing melody
-            widget.playRecorderController!.isPlayingMelody = true;
             await playMelody(widget.playRecorderController!.playingMelody!);
-            widget.playRecorderController!.isPlayingMelody = false;
+            break;
+
+          case "record-start":
+            /// start a record
+            currentMelody.reset();
+            setState(() {
+              widget.playRecorderController!.isRecordingMelody = true;
+              currentTimestamp = -1;
+            });
+            if (widget.onStartRecordMelody != null) {
+              widget.onStartRecordMelody!();
+            };
+            break;
+
+          case "record-stop":
+            /// stop a record
+            setState(() {
+              widget.playRecorderController!.isRecordingMelody = false;
+            });
+            if (widget.onStopRecordMelody != null) {
+              widget.onStopRecordMelody!(currentMelody);
+            };
             break;
 
         }
 
-        // reset
+        // reset mode
         widget.playRecorderController!.mode = "";
       });
     }
@@ -240,7 +279,10 @@ class _InteractivePianoState extends State<InteractivePiano> {
                                             ? widget.highlightColor
                                             : null,
                                     keyWidth: _lastKeyWidth,
-                                    onTap: _onNoteTapped(note)))
+                                    // onTap: _onNoteTapped(note),
+                                    onTapDown: () => _onNoteTappedDown(note),
+                                    onTapUp: () => _onNoteTappedUp(note),
+                            ))
                                 .toList(),
                           ),
                           Positioned(
@@ -268,7 +310,9 @@ class _InteractivePianoState extends State<InteractivePiano> {
                                                 ? widget.highlightColor
                                                 : null,
                                             keyWidth: _lastKeyWidth,
-                                            onTap: _onNoteTapped(note),
+                                            // onTap: _onNoteTapped(note),
+                                            onTapDown: () => _onNoteTappedDown(note),
+                                            onTapUp: () => _onNoteTappedUp(note),
                                           ),
                                         )
                                         .toList(),
@@ -280,32 +324,78 @@ class _InteractivePianoState extends State<InteractivePiano> {
         ),
       );
 
-  void Function()? _onNoteTapped(NotePosition notePosition) =>
-      widget.onNotePositionTapped == null
-          ? null
-          : () => widget.onNotePositionTapped!(notePosition);
+  // cancel because of redondance
+  // void Function()? _onNoteTapped(NotePosition notePosition) =>
+  //     widget.onNotePositionTapped == null
+  //         ? null
+  //         : () => widget.onNotePositionTapped!(notePosition);
+
+  void Function()? _onNoteTappedDown(NotePosition notePosition) {
+    // record new note
+    if (widget.playRecorderController!.isRecordingMelody) {
+      // set silence
+      if (currentTimestamp > 0) {
+        currentMelody.add(PianoMelodyNote(duration: Duration(milliseconds: DateTime.now().millisecondsSinceEpoch - currentTimestamp)));
+      }
+
+      // set new note
+      currentNote = PianoMelodyNote(note: notePosition, duration: const Duration());
+
+      // set timer
+      currentTimestamp = DateTime.now().millisecondsSinceEpoch;
+    }
+
+    // other stuff, redirect to normal activation
+    if (widget.onNotePositionTapped != null) {
+      widget.onNotePositionTapped!(notePosition);
+    }
+    return null;
+  }
+
+  void Function()? _onNoteTappedUp(NotePosition notePosition) {
+    // release previous note "downed"
+    if (widget.playRecorderController!.isRecordingMelody && currentNote != null) {
+      // ajust timer and record in melody
+      currentNote!.duration = Duration(milliseconds: DateTime.now().millisecondsSinceEpoch - currentTimestamp);
+      currentMelody.add(currentNote!);
+
+      // get silence
+      currentTimestamp = DateTime.now().millisecondsSinceEpoch;
+    }
+
+    return null;
+  }
 
   ///
   /// Play a melody
   ///
   Future<void> playMelody(PianoMelody melody) async {
     // check
-    if (isPlayingMelody) {
+    if (widget.playRecorderController!.isRecordingMelody || widget.playRecorderController!.isPlayingMelody) {
       return;
     }
 
     // playing melody
-    isPlayingMelody = true;
+    widget.playRecorderController!.isPlayingMelody = true;
     if (kDebugMode) {
       print("Piano: playing; '${melody.name}'");
+    }
+
+    // callback on start
+    if (widget.onStartPlayMelody != null) {
+      widget.onStartPlayMelody!();
     }
 
     // parse notes
     for(PianoMelodyNote note in melody.melody) {
       // silence or note
+      // if (kDebugMode) {
+      //   print("Piano: play; '${note.note} / ${note.duration}'");
+      // }
+
       // callback
-      if (widget.onNotePositionTapped != null) {
-        widget.onNotePositionTapped!(note.note);
+      if (widget.onNotePositionTapped != null && note.note != null) {
+        widget.onNotePositionTapped!(note.note!);
       }
 
       // pause for duration note/silence
@@ -313,11 +403,19 @@ class _InteractivePianoState extends State<InteractivePiano> {
     }
 
     // end playing
-    isPlayingMelody = false;
+    widget.playRecorderController!.isPlayingMelody = false;
     if (kDebugMode) {
       print("Piano: end playing: '${melody.name}'");
     }
 
+    // callback on stop
+    if (widget.onStopPlayMelody != null) {
+      // little sleep before callback (display note ...)
+      await Future.delayed(const Duration(milliseconds: 500));
+
+      // callback
+      widget.onStopPlayMelody!();
+    }
   }
 }
 
@@ -328,6 +426,8 @@ class _PianoKey extends StatefulWidget {
   final bool hideNoteName;
   final VoidCallback? onTap;
   final bool isAnimated;
+  final VoidCallback? onTapDown;
+  final VoidCallback? onTapUp;
 
   final Color _color;
 
@@ -336,10 +436,12 @@ class _PianoKey extends StatefulWidget {
     required this.notePosition,
     required this.keyWidth,
     required this.hideNoteName,
-    required this.onTap,
+    this.onTap,
     required this.isAnimated,
     required Color color,
     Color? highlightColor,
+    this.onTapDown,
+    this.onTapUp,
   })  : _borderRadius = BorderRadius.only(
             bottomLeft: Radius.circular(keyWidth * 0.2),
             bottomRight: Radius.circular(keyWidth * 0.2)),
@@ -434,12 +536,15 @@ class __PianoKeyState extends State<_PianoKey>
                       child: InkWell(
                         borderRadius: widget._borderRadius,
                         highlightColor: Colors.grey,
-                        onTap: widget.onTap == null ? null : () {},
-                        onTapDown: widget.onTap == null
-                            ? null
-                            : (_) {
-                                widget.onTap!();
-                              },
+                        onTap: widget.onTap == null ? null : () => widget.onTap!(),
+                        onTapUp: widget.onTapUp == null ? null : (_) => widget.onTapUp!(),
+                        onTapDown: widget.onTapDown == null ? null : (_) => widget.onTapDown!(),
+                        // onTap: widget.onTap == null ? null : () {},
+                        // onTapDown: widget.onTap == null
+                        //     ? null
+                        //     : (_) {
+                        //         widget.onTap!();
+                        //       },
                       ))),
               Positioned(
                 left: 0.0,
@@ -500,7 +605,7 @@ class _MaybeScrollbar extends StatelessWidget {
           thumbColor: Colors.grey.shade600,
           radius: Radius.circular(16),
           thickness: 16,
-          isAlwaysShown: true,
+          thumbVisibility: true,
           controller: scrollController,
           child: Container(
               color: Colors.black,

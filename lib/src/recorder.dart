@@ -3,6 +3,7 @@
 ///
 
 import "dart:convert";
+import "dart:math";
 
 import "package:flutter/material.dart";
 
@@ -20,6 +21,9 @@ class PianoPlayRecorderController extends ChangeNotifier {
   bool isPlayingMelody = false;
   PianoMelody? playingMelody;
 
+  /// recording melody
+  bool isRecordingMelody = false;
+
   ///
   /// Play a melody in InteractivePiano
   ///
@@ -29,18 +33,33 @@ class PianoPlayRecorderController extends ChangeNotifier {
     notifyListeners();
   }
 
+  ///
+  /// Start a record from user playing
+  ///
+  startRecordMelody() {
+    mode = "record-start";
+    notifyListeners();
+  }
+
+  ///
+  /// Stop a record from user playing
+  ///
+  stopRecordMelody() {
+    mode = "record-stop";
+    notifyListeners();
+  }
 }
 
 ///
 /// Melody object
 ///
 
-const String SAMPLE_AMCM = '[{"note": "A4", "duration": 300}, {"note": "CS5", "duration": 150}, {"note": "E5", "duration": 150}, {"note": "A4", "duration": 300}, {"duration": 600}, {"note": "C4", "duration": 300}, {"note": "EF4", "duration": 300}, {"note": "G4", "duration": 600}]';
-const String SAMPLE_MISC = '[{"note": "C4", "duration": 300}, {"note": "EB4", "duration": 300}, {"note": "G4", "duration": 300}, {"note": "B3", "duration": 300}, {"note": "C4", "duration": 300},{"note": "C5", "duration": 300}]';
+const String SAMPLE_AMCM = '[{"note": "A4", "duration": 300}, {"duration":197}, {"note": "CS5", "duration": 150}, {"duration":197}, {"note": "E5", "duration": 150}, {"duration":197}, {"note": "A4", "duration": 300}, {"duration":600}, {"note": "C4", "duration": 300}, {"duration":197}, {"note": "EF4", "duration": 300}, {"duration":197}, {"note": "G4", "duration": 600}]';
+const String SAMPLE_MISC = '[{"note": "C4", "duration": 300}, {"duration":197}, {"note": "EB4", "duration": 300}, {"duration":197}, {"note": "G4", "duration": 300}, {"duration":197}, {"note": "B3", "duration": 300}, {"duration":197}, {"note": "C4", "duration": 300}, {"duration":197}, {"note": "C5", "duration": 300}]';
 
 class PianoMelody {
   bool isImported = false;
-  final String name;
+  String name;
   final List<PianoMelodyNote> melody;
 
   // properties
@@ -54,7 +73,9 @@ class PianoMelody {
   static PianoMelody get AmCm => PianoMelody.fromJson("AmCm", jsonDecode(SAMPLE_AMCM));
   static PianoMelody get CmMisc => PianoMelody.fromJson("Sample Misc", jsonDecode(SAMPLE_MISC));
 
-  // factories
+  ///
+  /// factories
+  ///
   PianoMelody({required this.name, required this.melody});
 
   ///
@@ -96,6 +117,21 @@ class PianoMelody {
     return jsonEncode(export);
   }
 
+  ///
+  /// reset current melody
+  ///
+  void reset({String? newName}) {
+    isImported = false;
+    name = newName ?? "New melody #${Random().nextInt(1000)}";
+    melody.clear();
+  }
+
+  ///
+  /// add notes to current melody
+  ///
+  void add(PianoMelodyNote note) {
+    melody.add(note);
+  }
 }
 
 class PianoMelodyNote {

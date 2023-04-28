@@ -1,5 +1,3 @@
-import 'dart:convert';
-
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:piano/piano.dart';
@@ -85,7 +83,15 @@ class _HomeScreenState extends State<HomeScreen> {
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                 children: [
-                  OutlinedButton(onPressed: () {}, child: Text("Record this")),
+                  OutlinedButton(
+                      onPressed: () {
+                        (!controller.isRecordingMelody)
+                            ? controller.startRecordMelody()
+                            : controller.stopRecordMelody();
+                        setState(() {
+                        });
+                      },
+                      child: Text((!controller.isRecordingMelody) ? "Record this" : "Stop record")),
                   OutlinedButton(onPressed: () => controller.playMelody(currentMelody), child: Text("Listen last song")),
                 ],
               ),
@@ -113,30 +119,40 @@ class _HomeScreenState extends State<HomeScreen> {
                   onNotePositionTapped: (position) {
                     // Use an audio library like flutter_midi to play the sound
 
-                    // silence or note
-                    if (position == null) {
-                      // silence
-                      setState(() {
-                        currentNotes = [];
-                        currentHighlightNotes = [];
-                        currentScrollTo = null; // NotePosition.middleC;
-                      });
-                    }
+                    // display notes
+                    setState(() {
+                      currentNotes = [
+                        NoteImage(notePosition: position),
+                      ];
 
-                    else {
-                      // notes
-                      setState(() {
-                        currentNotes = [
-                          NoteImage(notePosition: position),
-                        ];
+                      currentHighlightNotes = [
+                        position,
+                      ];
+                      currentScrollTo = position;
+                    });
+                  },
 
-                        currentHighlightNotes = [
-                          position,
-                        ];
-                        currentScrollTo = position;
-                      });
-                    }
+                  onStartPlayMelody: () {
+                  },
 
+                  onStopPlayMelody: () {
+                    setState(() {
+                      currentNotes = [];
+                      currentHighlightNotes = [];
+                      currentScrollTo = null; // NotePosition.middleC;
+                    });
+                  },
+
+                  onStartRecordMelody: () {
+                  },
+
+                  onStopRecordMelody: (melody) {
+                    // set new melody
+                    setState(() {
+                      currentMelody = melody;
+                    });
+
+                    print("melody: ${currentMelody.toJson()}");
                   },
                 ),
               ),
